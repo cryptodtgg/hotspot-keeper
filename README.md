@@ -12,11 +12,13 @@ Android's built-in hotspot timeout shuts the hotspot down after a period of inac
 - Every 30 seconds, checks if the hotspot is on; if it's off, turns it back on
 - One-tap toggle in the app to start/stop the keeper
 - **Data usage tracking**: live line chart showing data drawn over time, plus session and total usage counters
+- **Background sampling**: a lightweight alarm samples data usage every 15 minutes even when the keeper service is stopped — no foreground service, no notification, no wake lock. The chart keeps filling in so you can see when data actually moves.
 - No root required
 
 ## How it works
 
 - The keeper service samples total device traffic every 30 seconds and records it
+- A separate `DataSamplingReceiver` alarm fires every 15 minutes to record usage when the keeper is off
 - The main screen shows a live line chart (MB over time) and text counters for this session and all-time usage
 - The notification also shows current session usage
 

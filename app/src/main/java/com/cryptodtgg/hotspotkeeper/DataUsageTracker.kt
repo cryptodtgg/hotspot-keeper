@@ -16,7 +16,7 @@ class DataUsageTracker(context: Context) {
         private const val KEY_SESSION_START_TX = "session_start_tx"
         private const val KEY_SESSION_ACTIVE = "session_active"
         private const val KEY_HISTORY = "history"
-        private const val MAX_HISTORY_POINTS = 60
+        private const val MAX_HISTORY_POINTS = 96
     }
 
     fun startSession() {

@@ -23,6 +23,7 @@ class HotspotKeeperService : Service() {
         private const val CHANNEL_ID = "hotspot_keeper_channel"
         private const val NOTIFICATION_ID = 1001
         private const val CHECK_INTERVAL_MS = 30_000L
+        const val ACTION_UPDATE = "com.cryptodtgg.hotspotkeeper.ACTION_UPDATE"
         @Volatile
         var isRunning = false
             private set
