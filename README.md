@@ -1,4 +1,4 @@
-# Hotspot Keeper
+# Stay On
 
 Keeps your Android personal hotspot on permanently until you manually turn it off.
 
