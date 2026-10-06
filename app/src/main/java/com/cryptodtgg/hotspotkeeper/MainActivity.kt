@@ -9,10 +9,18 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.LayoutInflate
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.ListView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.LayoutRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.github.mikephil.charting.charts.LineChart
@@ -39,6 +47,7 @@ class MainActivity : AppCompatActivity() {
         val allGranted = results.values.all { it }
         if (allGranted) {
             updateStatus()
+            refreshClients()
         } else {
             Toast.makeText(this, "Permissions required for hotspot control", Toast.LENGTH_LONG).show()
         }
@@ -48,8 +57,19 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             updateStatus()
             updateChart()
+            refreshClients()
         }
     }
+
+    private val clientRefreshHandler = Handler(Looper.getMainLooper())
+    private val clientRefreshRunnable = object : Runnable {
+        override fun run() {
+            refreshClients()
+            clientRefreshHandler.postDelayed(this, 10_000L)
+        }
+    }
+
+    private var clientAdapter: ClientAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,8 +79,24 @@ class MainActivity : AppCompatActivity() {
         val statusText = findViewById<TextView>(R.id.statusText)
         val dataText = findViewById<TextView>(R.id.dataText)
         val chart = findViewById<LineChart>(R.id.usageChart)
+        val clientList = findViewById<ListView>(R.id.clientList)
+        val kickAllButton = findViewById<Button>(R.id.kickAllButton)
 
         setupChart(chart)
+
+        clientAdapter = ClientAdapter(this, R.layout.item_client, mutableListOf())
+        clientList.adapter = clientAdapter
+        clientList.setOnItemClickListener { _, _, position, _ ->
+            val client = clientAdapter?.getItem(position) ?: return@setOnItemClickListener
+            kickClient(client)
+        }
+
+        kickAllButton.setOnClickListener {
+            val mgr = HotspotClientManager(this)
+            val kicked = mgr.kickAll()
+            Toast.makeText(this, "Kicked $kicked client(s)", Toast.LENGTH_SHORT).show()
+            refreshClients()
+        }
 
         toggleButton.setOnClickListener {
             if (!hasAllPermissions()) {
@@ -82,6 +118,7 @@ class MainActivity : AppCompatActivity() {
             }
             updateStatus()
             updateChart()
+            refreshClients()
         }
 
         if (!hasAllPermissions()) {
@@ -89,6 +126,7 @@ class MainActivity : AppCompatActivity() {
         }
         updateStatus()
         updateChart()
+        refreshClients()
     }
 
     override fun onResume() {
@@ -100,12 +138,15 @@ class MainActivity : AppCompatActivity() {
             @Suppress("DEPRECATION")
             registerReceiver(updateReceiver, filter)
         }
+        clientRefreshHandler.post(clientRefreshRunnable)
         updateStatus()
         updateChart()
+        refreshClients()
     }
 
     override fun onPause() {
         super.onPause()
+        clientRefreshHandler.removeCallbacks(clientRefreshRunnable)
         try {
             unregisterReceiver(updateReceiver)
         } catch (_: IllegalArgumentException) {
@@ -156,6 +197,25 @@ class MainActivity : AppCompatActivity() {
         chart.invalidate()
     }
 
+    private fun refreshClients() {
+        val mgr = HotspotClientManager(this)
+        val clients = mgr.getConnectedClients()
+        clientAdapter?.updateClients(clients)
+        val countText = findViewById<TextView>(R.id.clientCountText)
+        countText.text = getString(R.string.client_count_format, clients.size)
+    }
+
+    private fun kickClient(client: HotspotClientManager.Client) {
+        val mgr = HotspotClientManager(this)
+        val ok = mgr.kickClient(client.macAddress)
+        Toast.makeText(
+            this,
+            if (ok) "Kicked ${client.displayName()}" else "Couldn't kick ${client.displayName()}",
+            Toast.LENGTH_SHORT
+        ).show()
+        refreshClients()
+    }
+
     private fun setupChart(chart: LineChart) {
         chart.description = Description().apply { text = "" }
         chart.legend.isEnabled = false
@@ -167,5 +227,27 @@ class MainActivity : AppCompatActivity() {
         chart.setScaleEnabled(true)
         chart.setPinchZoom(true)
         chart.animateX(500)
+    }
+
+    private class ClientAdapter(
+        context: Context,
+        @LayoutRes private val resource: Int,
+        private val clients: MutableList<HotspotClientManager.Client>
+    ) : ArrayAdapter<HotspotClientManager.Client>(context, resource, clients) {
+
+        fun updateClients(newClients: List<HotspotClientManager.Client>) {
+            clients.clear()
+            clients.addAll(newClients)
+            notifyDataSetChanged()
+        }
+
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+            val view = convertView ?: LayoutInflate.from(context).inflate(resource, parent, false)
+            val client = getItem(position)!!
+            view.findViewById<TextView>(R.id.clientName).text = client.displayName()
+            view.findViewById<TextView>(R.id.clientMac).text = client.macAddress
+            view.findViewById<TextView>(R.id.clientIp).text = client.ipAddress
+            return view
+        }
     }
 }
