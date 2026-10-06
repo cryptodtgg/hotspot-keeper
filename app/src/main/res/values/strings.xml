@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hotspot Keeper</string>
+    <string name="app_name">Stay On</string>
     <string name="start_keeper">Start Keeper</string>
     <string name="stop_keeper">Stop Keeper</string>
     <string name="status_on">Hotspot keeper is ON</string>
     <string name="status_off">Hotspot keeper is OFF</string>
     <string name="hint_text">Keeps your personal hotspot alive even when no devices are connected. Turn it off here when you want it off. Tap a client to kick them off.</string>
     <string name="notification_text">Keeping your hotspot alive</string>
-    <string name="channel_name">Hotspot Keeper</string>
+    <string name="channel_name">Stay On</string>
     <string name="channel_description">Service that keeps the personal hotspot on</string>
     <string name="data_usage_placeholder">Session: 0 B  |  Total: 0 B</string>
     <string name="data_usage_format">Session: %1$s  |  Total: %2$s</string>
