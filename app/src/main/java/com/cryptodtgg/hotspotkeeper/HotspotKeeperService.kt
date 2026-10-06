@@ -30,11 +30,14 @@ class HotspotKeeperService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private var wifiManager: WifiManager? = null
+    private var dataTracker: DataUsageTracker? = null
 
     private val checkRunnable = object : Runnable {
         override fun run() {
             try {
                 ensureHotspotOn()
+                dataTracker?.recordSample()
+                sendBroadcast(Intent(ACTION_UPDATE).setPackage(packageName))
             } catch (e: Exception) {
                 Log.e(TAG, "Error checking hotspot", e)
             }
@@ -45,11 +48,13 @@ class HotspotKeeperService : Service() {
     override fun onCreate() {
         super.onCreate()
         wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        dataTracker = DataUsageTracker(applicationContext)
         createNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         isRunning = true
+        dataTracker?.startSession()
         startForegroundNotification()
         handler.removeCallbacks(checkRunnable)
         handler.post(checkRunnable)
@@ -58,6 +63,7 @@ class HotspotKeeperService : Service() {
 
     override fun onDestroy() {
         isRunning = false
+        dataTracker?.stopSession()
         handler.removeCallbacks(checkRunnable)
         super.onDestroy()
     }
@@ -67,17 +73,12 @@ class HotspotKeeperService : Service() {
     private fun ensureHotspotOn() {
         val wm = wifiManager ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // Android 8+: use reflection to toggle hotspot
             try {
-                val method = wm.javaClass.getDeclaredMethod(
-                    "isWifiApEnabled"
-                )
+                val method = wm.javaClass.getDeclaredMethod("isWifiApEnabled")
                 method.isAccessible = true
                 val enabled = method.invoke(wm) as? Boolean ?: false
                 if (!enabled) {
-                    val startMethod = wm.javaClass.getDeclaredMethod(
-                        "startSoftAp"
-                    )
+                    val startMethod = wm.javaClass.getDeclaredMethod("startSoftAp")
                     startMethod.isAccessible = true
                     startMethod.invoke(wm)
                     Log.d(TAG, "Hotspot was off — turned it back on")
@@ -99,7 +100,9 @@ class HotspotKeeperService : Service() {
             if (!isEnabled) {
                 val config = wm.wifiApConfiguration
                 val method = wm.javaClass.getMethod(
-                    "setWifiApEnabled", android.net.wifi.WifiConfiguration::class.java, Boolean::class.javaPrimitiveType
+                    "setWifiApEnabled",
+                    android.net.wifi.WifiConfiguration::class.java,
+                    Boolean::class.javaPrimitiveType
                 )
                 method.invoke(wm, config, true)
                 Log.d(TAG, "Fallback: hotspot turned on")
@@ -115,9 +118,10 @@ class HotspotKeeperService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
         )
+        val sessionMb = dataTracker?.formatBytes(dataTracker?.getSessionUsageBytes() ?: 0L) ?: "0 B"
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(getString(R.string.app_name))
-            .setContentText(getString(R.string.notification_text))
+            .setContentText(getString(R.string.notification_text) + " — $sessionMb this session")
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentIntent(pendingIntent)
             .setOngoing(true)

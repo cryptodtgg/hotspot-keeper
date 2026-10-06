@@ -9,4 +9,6 @@
     <string name="notification_text">Keeping your hotspot alive</string>
     <string name="channel_name">Hotspot Keeper</string>
     <string name="channel_description">Service that keeps the personal hotspot on</string>
+    <string name="data_usage_placeholder">Session: 0 B  |  Total: 0 B</string>
+    <string name="data_usage_format">Session: %1$s  |  Total: %2$s</string>
 </resources>
